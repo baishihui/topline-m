@@ -11,15 +11,14 @@
          v-slot="{ errors }" 获取校验失败的错误提示消息
      -->
     <!-- 表单 -->
-    <ValidationObserver>
-      <ValidationProvider name="手机号" rules='required' v-slot="{ errors }">
-          <van-field v-model="user.mobile" label="手机号" placeholder="请输入手机号" >
+    <ValidationObserver ref="form">
+      <ValidationProvider name="手机号" rules='required|mobile' immediate>
+          <van-field v-model="user.mobile" placeholder="请输入手机号" >
         <i class="icon icon-phone" slot="left-icon"></i>
       </van-field>
-      <span>{{errors[0]}}</span>
       </ValidationProvider>
-     <ValidationProvider>
-        <van-field v-model="user.code" label="验证码" placeholder="请输入验证码" >
+     <ValidationProvider name="验证码" rules='required|code' immediate>
+        <van-field v-model="user.code" placeholder="请输入验证码" >
         <i class="icon icon-iconfontmima1" slot="left-icon"></i>
          <!-- 倒计时 -->
          <van-count-down
@@ -45,6 +44,7 @@
 
 <script>
 import { login, getSmsCode } from '@/api/user'
+import { validate } from 'vee-validate'
 export default {
   name: 'LoginPage',
   data () {
@@ -61,7 +61,24 @@ export default {
     async onLogin () {
       // 获取表单数据
       const user = this.user
+      // 表单验证
+      const success = await this.$refs.form.validate()
+      if (!success) {
+        // 注意：如果你需要在 JS 验证中能马上获取到错误消息
+        // 必须给每一个 ValidationProvider 配置 immediate 初始验证
+        const items = this.$refs.form.errors
+        for (let key in items) {
+          const item = items[key]
+          if (item[0]) {
+            this.$toast(item[0])
 
+            // 找到第1个有错误的消息，给出提示，停止遍历
+            return
+          }
+        }
+
+        return
+      }
       // 开启登陆中。。。
       this.$toast.loading({
         duration: 0, // 持续展示 toast
@@ -70,14 +87,17 @@ export default {
       })
       // 发请求
       try {
-        let res = await login(user)
-        console.log(res)
+        let { data } = await login(user)
+        console.log(data)
+        // 将登录成功获取到的用户 token 相关数据存储到 Vuex 容器
+        this.$store.commit('setUser', data.data)
+
         // 成功提示
         this.$toast.success('登录成功')
       } catch (error) {
         console.log('登录失败', error)
         // 失败提示
-        this.$toast.fail('登录失败')
+        this.$toast.fail('登录失败,手机号或验证码不正确')
       }
     },
     // 发送验证码
@@ -85,6 +105,15 @@ export default {
       try {
         let { mobile } = this.user
         // 1、校验
+        const validateResult = await validate(mobile, 'required|mobile', {
+          name: '手机号'
+        })
+
+        // 如果验证失败，提示错误消息，停止发送验证码
+        if (!validateResult.valid) {
+          this.$toast(validateResult.errors[0])
+          return
+        }
 
         // 2、显示倒计时
         this.isCountDown = true
