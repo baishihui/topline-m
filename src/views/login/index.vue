@@ -94,6 +94,8 @@ export default {
 
         // 成功提示
         this.$toast.success('登录成功')
+        // 回到首页
+        this.$router.push('/')
       } catch (error) {
         console.log('登录失败', error)
         // 失败提示
