@@ -1,6 +1,7 @@
 import Vue from 'vue'
 import Vuex from 'vuex'
 import { setItem, getItem } from '@/utils/storage'
+import decodeJwt from 'jwt-decode'
 
 const USER_KEY = 'user'
 
@@ -13,6 +14,9 @@ export default new Vuex.Store({
   },
   mutations: {
     setUser (state, data) {
+      if (data && data.token) {
+        data.id = decodeJwt(data.token).user_id
+      }
       state.user = data
       // 为了刷新页面 不丢失token数据 需要本地存储  持久化
       setItem(USER_KEY, state.user)
